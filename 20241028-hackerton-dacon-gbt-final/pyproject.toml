@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "hackerton-dacon-2024-gbt-final"
+version = "0.1.0"
+description = ""
+authors = ["BrianBae <brian.bae.contact@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "3.12.5"
+langchain-teddynote = "^0.3.14"
+langchain-openai = "^0.2.3"
+langchain-community = "^0.3.3"
+langchain-core = "^0.3.13"
+langchain-cli = "^0.0.31"
+langsmith = "^0.1.137"
+langserve = {extras = ["all"], version = "^0.3.0"}
+langchain-upstage = "^0.3.0"
+faiss-cpu = "^1.9.0"
+playwright = "^1.48.0"
+beautifulsoup4 = "^4.12.3"
+pandas = "^2.2.3"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
