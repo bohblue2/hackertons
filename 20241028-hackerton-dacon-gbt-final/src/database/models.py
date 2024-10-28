@@ -21,5 +21,8 @@ class EpeopleCaseOrm(Base):
     related_laws = Column(String, nullable=True)
     # 답변 날짜
     answer_date = Column(DateTime, nullable=False)
+    # 백터화 여부 
+    vectorized = Column(Boolean, default=False)
+
     created_at = Column(DateTime, default=datetime.datetime.now)
     updated_at = Column(DateTime, default=datetime.datetime.now)

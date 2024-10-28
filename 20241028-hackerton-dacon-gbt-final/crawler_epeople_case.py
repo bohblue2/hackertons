@@ -9,8 +9,10 @@ from src.database.models import EpeopleCaseOrm
 
 WAIT_SHORT_TIME = 0.5
 WAIT_NORMAL_TIME = 1
+WAIT_LONG_TIME = 3
 USE_PAGE_CORDINATION = True
-TARGET_PAGE = 3
+START_PAGE = 51
+TARGET_PAGE = 1000
 
 async def run(playwright: Playwright) -> None:
     sess = SessionLocal()
@@ -23,13 +25,18 @@ async def run(playwright: Playwright) -> None:
         await asyncio.sleep(WAIT_SHORT_TIME)
 
         if USE_PAGE_CORDINATION:
-            input("Press Enter to continue...")
+            start_idx = int(input("Press Enter to continue...")) # 5
+        if START_PAGE != 1:
+            await page.evaluate(f"frmPageLink({START_PAGE})")
+            await page.wait_for_load_state('networkidle')
+            await asyncio.sleep(WAIT_LONG_TIME)
         for page_num in range(1, TARGET_PAGE):
-            for i in range(1, 11):
+            for i in range(start_idx, 11):
                 # 1. Parse id of Target Case from the list page
                 case_list_html = await page.content()
                 html_parser = BeautifulSoup(case_list_html, 'html.parser')
                 case_id = html_parser.select_one(f"#frm > table > tbody > tr:nth-child({i}) > td").text.strip()
+                print(case_id, page_num)
 
                 # 2. Go to the Target Case page and Parse the content(Question and Answer)
                 await page.click(f"#frm > table > tbody > tr:nth-child({i}) > td.left > a")
@@ -73,6 +80,10 @@ async def run(playwright: Playwright) -> None:
             await page.click("#frm > div.page_list > span.nep_p_next")
             await asyncio.sleep(WAIT_NORMAL_TIME)
             page_num += 1
+            
+            # After moved to the next page, reset the start_idx 
+            if start_idx != 1:
+                start_idx = 1
     except Exception as e: raise e
     finally:
         await context.close() # 콘텍스트 종료

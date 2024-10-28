@@ -1,4 +1,3 @@
-startup.sh
 **/*.pyc
 **/*.pyo
 **/*.pyd
