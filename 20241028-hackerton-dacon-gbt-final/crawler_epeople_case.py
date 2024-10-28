@@ -9,7 +9,7 @@ from src.database.models import EpeopleCaseOrm
 
 WAIT_SHORT_TIME = 0.5
 WAIT_NORMAL_TIME = 1
-
+USE_PAGE_CORDINATION = True
 TARGET_PAGE = 3
 
 async def run(playwright: Playwright) -> None:
@@ -22,6 +22,8 @@ async def run(playwright: Playwright) -> None:
         await page.goto("https://www.epeople.go.kr/nep/pttn/gnrlPttn/pttnSmlrCaseList.npaid")
         await asyncio.sleep(WAIT_SHORT_TIME)
 
+        if USE_PAGE_CORDINATION:
+            input("Press Enter to continue...")
         for page_num in range(1, TARGET_PAGE):
             for i in range(1, 11):
                 # 1. Parse id of Target Case from the list page
