@@ -4,8 +4,8 @@ import datetime # 비동기 라이브러리
 from playwright.async_api import async_playwright, Playwright
 from bs4 import BeautifulSoup
 
-from src.database.session import SessionLocal
-from src.database.models import EpeopleCaseOrm
+from app.database.session import SessionLocal
+from app.database.models import EpeopleCaseOrm
 
 WAIT_SHORT_TIME = 0.5
 WAIT_NORMAL_TIME = 1

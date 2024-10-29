@@ -10,7 +10,7 @@ engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def init_db():
-    from src.database.models import Base
+    from yongin_assistant.database.models import Base
     Base.metadata.create_all(bind=engine)
 
 if not os.path.exists(SQLITE_LOCAL_PATH):

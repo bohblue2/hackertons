@@ -1,7 +1,7 @@
 import datetime
 
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, LargeBinary
-from src.database.base import Base  
+from yongin_assistant.database.base import Base  
 
 class EpeopleCaseOrm(Base):
     __tablename__ = 'epeople_cases'
