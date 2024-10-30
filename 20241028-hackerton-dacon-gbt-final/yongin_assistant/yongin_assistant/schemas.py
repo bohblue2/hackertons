@@ -46,3 +46,15 @@ class RecommendAnswerRequest(BaseModel):
     prompt_instruction: Optional[str] = None # NOTE: 단정한 어조를 사용해줘
     temperature: Optional[float] = 0.0
     max_tokens: Optional[int] = 1000
+
+# TODO: refactor me (these object are duplicated with RecommendAnswerResponse)
+class CaseWithAnswer(BaseModel):
+    case: EpeopleCase
+    recommended_answer: str
+
+class SimilarCaseGroup(BaseModel):
+    cases: List[CaseWithAnswer]
+
+class CategoryCases(BaseModel):
+    category_name: str
+    similar_case_groups: List[SimilarCaseGroup]

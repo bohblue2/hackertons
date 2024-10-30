@@ -3,7 +3,7 @@ from typing import List, Optional
 from fastapi import Body, FastAPI, Depends, HTTPException, Path, Query
 from yongin_assistant.database.session import SessionLocal
 from yongin_assistant.database.models import EpeopleCaseOrm 
-from yongin_assistant.schemas import EpeopleCase, EpeopleCaseCreate, HealthCheck, SimilarCase, RecommendAnswerResponse, RecommendAnswerRequest
+from yongin_assistant.schemas import CaseWithAnswer, CategoryCases, EpeopleCase, EpeopleCaseCreate, HealthCheck, SimilarCase, RecommendAnswerResponse, RecommendAnswerRequest, SimilarCaseGroup
 from sqlalchemy.orm import Session
 
 def get_db():
@@ -327,6 +327,93 @@ async def get_similar_cases(
     ]
     
     return similar_cases
+
+@app.get(
+    "/categories",
+    response_model=List[str],
+    summary="민원 카테고리 목록 조회",
+    description="등록된 민원의 부서 정보를 기반으로 고유한 카테고리 목록을 반환합니다.",
+    responses={
+        200: {
+            "description": "카테고리 목록",
+            "content": {
+                "application/json": {
+                    "example": ["도로관리과", "교통행정과", "환경과"]
+                }
+            }
+        }
+    }
+)
+async def get_categories(db: Session = Depends(get_db)) -> List[str]:
+    categories = db.query(EpeopleCaseOrm.department)\
+        .distinct()\
+        .filter(EpeopleCaseOrm.department.isnot(None))\
+        .order_by(EpeopleCaseOrm.department)\
+        .all()
+    
+    # 튜플 형태의 결과를 리스트로 변환
+    return [category[0] for category in categories if category[0]]
+
+@app.get(
+    "/cases/categorized",
+    response_model=List[CategoryCases],
+    summary="카테고리별 민원 그룹 조회",
+    description="민원을 카테고리별로 분류하고, 각 카테고리 내에서 유사한 민원끼리 그룹화하여 반환합니다.",
+    responses={
+        200: {
+            "description": "카테고리별 민원 그룹 목록",
+            "content": {
+                "application/json": {
+                    "example": [{
+                        "category_name": "도로",
+                        "similar_case_groups": [{
+                            "cases": [{
+                                "case": {
+                                    "case_id": "CASE123",
+                                    "title": "도로 보수 요청",
+                                    "content": "도로에 파손이 심각하여 보수가 필요합니다."
+                                },
+                                "recommended_answer": "귀하의 도로 보수 요청 민원에 답변드립니다..."
+                            }]
+                        }]
+                    }]
+                }
+            }
+        }
+    }
+)
+async def get_categorized_cases(
+    db: Session = Depends(get_db)
+) -> List[CategoryCases]:
+    categories = await get_categories(db)
+    
+    result = []
+    for category in categories:
+        cases = db.query(EpeopleCaseOrm)\
+            .filter(EpeopleCaseOrm.department.like(f"%{category}%"))\
+            .all()
+        
+        # TODO: 실제 구현시에는 벡터 유사도 기반으로 그룹화해야 함, 임시로 2개씩 그룹화
+        similar_groups = []
+        for i in range(0, len(cases), 2):
+            group_cases = []
+            for case in cases[i:i+2]:
+                # TODO: 실제 구현시에는 LLM으로 추천 답변 생성
+                mock_answer = f"이것은 {case.case_id}에 대한 추천 답변입니다."
+                group_cases.append(CaseWithAnswer(
+                    case=case,
+                    recommended_answer=mock_answer
+                ))
+            if group_cases:
+                similar_groups.append(SimilarCaseGroup(cases=group_cases))
+        
+        result.append(CategoryCases(
+            category_name=category,
+            similar_case_groups=similar_groups
+        ))
+    
+    return result
+
 
 if __name__ == "__main__":
     import uvicorn
