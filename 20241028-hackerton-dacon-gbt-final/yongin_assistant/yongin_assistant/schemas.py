@@ -25,8 +25,13 @@ class EpeopleCase(EpeopleCaseBase):
 
     class Config:
         from_attributes = True
-    
 
+class EpeopleCaseWithAnswer(EpeopleCase):
+    recommended_answer: str
+
+    class Config:
+        from_attributes = True
+    
 class SimilarCase(BaseModel):
     case_id: str 
     title: str
@@ -57,4 +62,5 @@ class SimilarCaseGroup(BaseModel):
 
 class CategoryCases(BaseModel):
     category_name: str
+    target_case: EpeopleCaseWithAnswer
     similar_case_groups: List[SimilarCaseGroup]

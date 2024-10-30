@@ -1,7 +1,7 @@
 
 from dataclasses import dataclass
 import os
-from typing import Any
+from typing import Any, List, Optional
 from pymilvus import Collection, CollectionSchema, DataType, FieldSchema, MilvusClient, utility
 from constant import DEFAULT_EMBEDDING_DIM, MILVUS_METRIC_TYPE, MILVUS_NLIST, MILVUS_NPROBE, MILVUS_TOP_K, MILVUS_INDEX_TYPE
 from pymilvus import connections
@@ -47,7 +47,8 @@ def get_collection() -> Collection:
     schema = CollectionSchema(fields=fields)
     collection = Collection(
         name="epeople_cases",
-        schema=schema
+        schema=schema,
+        description="epeople_cases",
     )
     return collection
 
@@ -74,6 +75,7 @@ class MilvusSearchParams:
     nprobe: str
     limit: int
     expr: str = ""
+    output_fields: Optional[List[str]] = None 
     
     def to_dict(self) -> dict:
         search_params = {
@@ -83,7 +85,8 @@ class MilvusSearchParams:
                 "metric_type": self.metric_type,
                 "params": {"nprobe": self.nprobe}
             },
-            "limit": self.limit
+            "limit": self.limit,
+            "output_fields": self.output_fields
         }
         
         if self.expr:

@@ -1,9 +1,12 @@
 from datetime import datetime
 from typing import List, Optional
 from fastapi import Body, FastAPI, Depends, HTTPException, Path, Query
+from fastapi.middleware.cors import CORSMiddleware
 from yongin_assistant.database.session import SessionLocal
 from yongin_assistant.database.models import EpeopleCaseOrm 
-from yongin_assistant.schemas import CaseWithAnswer, CategoryCases, EpeopleCase, EpeopleCaseCreate, HealthCheck, SimilarCase, RecommendAnswerResponse, RecommendAnswerRequest, SimilarCaseGroup
+from yongin_assistant.schemas import CaseWithAnswer, CategoryCases, EpeopleCase, EpeopleCaseCreate, EpeopleCaseWithAnswer, HealthCheck, SimilarCase, RecommendAnswerResponse, RecommendAnswerRequest, SimilarCaseGroup
+from yongin_assistant.vector_service import VectorService
+from yongin_assistant.llm_service import LlmService
 from sqlalchemy.orm import Session
 
 def get_db():
@@ -13,8 +16,32 @@ def get_db():
     finally:
         db.close()
 
+def get_vector_service():
+    service = VectorService()
+    try:
+        yield service
+    finally:
+        service.close()
+
+def get_llm_service():
+    service = LlmService()
+    try:
+        yield service
+    finally:
+        service.close()
+
 def get_app() -> FastAPI:
     app = FastAPI()
+
+    # Add CORS middleware
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],  # In production, replace with specific origins
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    
     return app  
 
 app = get_app()
@@ -242,7 +269,8 @@ async def create_recommended_answer(
         },
         description="답변 생성을 위한 파라미터"
     ),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    llm_service: LlmService = Depends(get_llm_service)
 ) -> RecommendAnswerResponse:
     case = db.query(EpeopleCaseOrm)\
         .filter(EpeopleCaseOrm.case_id == case_id)\
@@ -251,11 +279,7 @@ async def create_recommended_answer(
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
     
-    # TODO: 일단은 mock 데이터를 사용하고 나중에 고도화함
-    # llm_service = LLMService()
-    # new_answer = llm_service.generate_answer(case.title, case.content, request.prompt_template)
-    
-    new_answer = "LLM이 생성한 새로운 답변 내용(MOCK DATA 임니다.)"  # 실제 구현 시 LLM 응답으로 대체
+    new_answer = llm_service.generate_answer(case.title, case.content, request.prompt_instruction)
 
     return RecommendAnswerResponse(
         case_id=case_id,
@@ -351,104 +375,159 @@ async def get_categories(db: Session = Depends(get_db)) -> List[str]:
         .order_by(EpeopleCaseOrm.department)\
         .all()
     
-    # DB에 데이터가 없는 경우 테스트용 mock 데이터 반환
-    if not categories:
-        return [
-            "도로관리과",
-            "교통행정과",
-            "환경과",
-            "복지정책과",
-            "민원여권과"
-        ]
-    
     return [category[0] for category in categories if category[0] is not None]
 
 @app.get(
     "/categorized",
     response_model=List[CategoryCases],
     summary="카테고리별 민원 그룹 조회",
-    description="민원을 카테고리별로 분류하고, 각 카테고리 내에서 유사한 민원끼리 그룹화하여 반환합니다.",
+    description="""
+    민원을 카테고리(부서)별로 분류하고, 각 카테고리 내에서 유사한 민원끼리 그룹화하여 반환합니다.
+    
+    - 각 카테고리별로 민원을 조회하고 유사도 기반으로 그룹화
+    - 각 민원에 대한 추천 답변 포함
+    - 페이징 및 검색 결과 수 제한 가능
+    """,
     responses={
         200: {
-            "description": "카테고리별 민원 그룹 목록",
+            "description": "카테고리별 민원 그룹 목록 조회 성공",
             "content": {
                 "application/json": {
                     "example": [{
-                        "category_name": "도로",
+                        "category_name": "도로관리과",
                         "similar_case_groups": [{
                             "cases": [{
                                 "case": {
+                                    "id": 1,
                                     "case_id": "CASE123",
                                     "title": "도로 보수 요청",
-                                    "content": "도로에 파손이 심각하여 보수가 필요합니다."
+                                    "content": "도로에 파손이 심각하여 보수가 필요합니다.",
+                                    "department": "도로관리과",
+                                    "related_laws": "도로법 제31조",
+                                    "answer_date": "2024-01-01T00:00:00",
+                                    "question_date": "2024-01-01T00:00:00",
+                                    "vectorized": True,
+                                    "created_at": "2024-01-01T00:00:00",
+                                    "updated_at": "2024-01-01T00:00:00"
                                 },
-                                "recommended_answer": "귀하의 도로 보수 요청 민원에 답변드립니다..."
+                                "recommended_answer": "귀하의 도로 보수 요청 민원에 답변드립니다. 현장 확인 결과 보수가 필요한 상황으로 판단되어 3일 이내 보수 공사를 진행하도록 하겠습니다."
                             }]
                         }]
                     }]
+                }
+            }
+        },
+        400: {
+            "description": "잘못된 요청 파라미터",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Invalid parameter value"}
+                }
+            }
+        },
+        500: {
+            "description": "서버 내부 오류",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Internal server error"}
                 }
             }
         }
     }
 )
 async def get_categorized_cases(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    vector_service: VectorService = Depends(get_vector_service),
+    skip: int = Query(
+        0, 
+        ge=0,
+        description="건너뛸 레코드 수",
+        examples=[0]
+    ),
+    limit: int = Query(
+        3, 
+        ge=1, 
+        le=50,
+        description="반환할 최대 레코드 수 (1-50)",
+        examples=[3]
+    ),
+    search_top_k: int = Query(
+        3, 
+        ge=1, 
+        le=10,
+        description="각 민원당 검색할 유사 민원 수 (1-10)",
+        examples=3
+    ),
+    category_skip: int = Query(
+        0,
+        ge=0,
+        description="건너뛸 카테고리 수",
+        examples=[0]
+    ),
+    category_limit: int = Query(
+        5,
+        ge=1,
+        le=20,
+        description="각 카테고리별로 반환할 민원 수 (1-20)",
+        examples=[5]
+    )
 ) -> List[CategoryCases]:
-    categories = db.query(EpeopleCaseOrm.department)\
-        .distinct()\
-        .filter(EpeopleCaseOrm.department.isnot(None))\
-        .order_by(EpeopleCaseOrm.department)\
+    categories = (
+        db.query(EpeopleCaseOrm.department)
+        .distinct()
+        .filter(EpeopleCaseOrm.department.isnot(None))
+        .order_by(EpeopleCaseOrm.department)
+        .offset(category_skip)
+        .limit(category_limit)
         .all()
+    )
     
-    # TODO: Refactor me, DB에 데이터가 없는 경우 테스트용 mock 데이터 반환
-    if not categories:
-        return [
-            "도로관리과",
-            "교통행정과",
-            "환경과",
-            "복지정책과",
-            "민원여권과"
-        ]
-    
-    categories= [category[0] for category in categories if category[0] is not None]
+    categories = [category[0] for category in categories]
     
     result = []
     for category in categories:
         cases = db.query(EpeopleCaseOrm)\
             .filter(EpeopleCaseOrm.department == category)\
+            .offset(skip)\
+            .limit(limit)\
             .all()
         
-        # TODO: Refactor me, DB에 데이터가 없는 경우 테스트용 mock 데이터 생성
-        if not cases:
-            mock_cases = [
-                EpeopleCaseOrm(
-                    case_id=f"{category}-{i:03d}",
-                    title=f"{category} 관련 민원 {i}",
-                    content=f"{category}에 대한 민원 내용입니다. {i}",
-                    department=category,
-                    question_date=datetime.now()
-                ) for i in range(1, 4)  # 각 카테고리당 3개의 mock 케이스 생성
-            ]
-            cases = mock_cases
-        
-        # TODO: 실제 구현시에는 벡터 유사도 기반으로 그룹화해야 함, 임시로 2개씩 그룹화
         similar_groups = []
-        for i in range(0, len(cases), 2):
+        for case in cases:
+            case: EpeopleCaseOrm
+
+            similar_cases: List[dict] = vector_service.find_similar(case.content, limit=search_top_k, min_similarity=0.5)
+            mock_answer = f"{case.department}의 {case.case_id}에 대한 답변입니다: {case.title}에 대해 검토한 결과..."
             group_cases = []
-            for case in cases[i:i+2]:
-                # TODO: 실제 구현시에는 LLM으로 추천 답변 생성
-                mock_answer = f"{case.department}의 {case.case_id}에 대한 답변입니다: {case.title}에 대해 검토한 결과..."
+            for similar_case in similar_cases:
+                target_case = db.query(EpeopleCaseOrm).filter(EpeopleCaseOrm.case_id == similar_case["case_id"]).first()
                 group_cases.append(CaseWithAnswer(
-                    case=case,
+                    case=target_case,
                     recommended_answer=mock_answer
                 ))
             if group_cases:
+                # TODO: refactor me, SimliarCaseGroup 은 불필요한 중첩이 발생함
                 similar_groups.append(SimilarCaseGroup(cases=group_cases))
             
-        result.append(CategoryCases(
-            category_name=category,
-            similar_case_groups=similar_groups
-        ))
+            target_case = EpeopleCaseWithAnswer(
+                id=case.id,
+                case_id=case.case_id,
+                title=case.title,
+                content=case.content,
+                department=case.department,
+                related_laws=case.related_laws,
+                answer_date=case.answer_date,
+                question_date=case.question_date,
+                vectorized=case.vectorized,
+                created_at=case.created_at,
+                updated_at=case.updated_at,
+                recommended_answer=mock_answer
+            )
+            result.append(CategoryCases(
+                category_name=category,
+                target_case=target_case,
+                similar_case_groups=similar_groups
+            ))
     
     return result
 
