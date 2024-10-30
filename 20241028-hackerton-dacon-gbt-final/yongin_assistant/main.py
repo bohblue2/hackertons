@@ -351,11 +351,20 @@ async def get_categories(db: Session = Depends(get_db)) -> List[str]:
         .order_by(EpeopleCaseOrm.department)\
         .all()
     
-    # 튜플 형태의 결과를 리스트로 변환
-    return [category[0] for category in categories if category[0]]
+    # DB에 데이터가 없는 경우 테스트용 mock 데이터 반환
+    if not categories:
+        return [
+            "도로관리과",
+            "교통행정과",
+            "환경과",
+            "복지정책과",
+            "민원여권과"
+        ]
+    
+    return [category[0] for category in categories if category[0] is not None]
 
 @app.get(
-    "/cases/categorized",
+    "/categorized",
     response_model=List[CategoryCases],
     summary="카테고리별 민원 그룹 조회",
     description="민원을 카테고리별로 분류하고, 각 카테고리 내에서 유사한 민원끼리 그룹화하여 반환합니다.",
@@ -385,13 +394,42 @@ async def get_categories(db: Session = Depends(get_db)) -> List[str]:
 async def get_categorized_cases(
     db: Session = Depends(get_db)
 ) -> List[CategoryCases]:
-    categories = await get_categories(db)
+    categories = db.query(EpeopleCaseOrm.department)\
+        .distinct()\
+        .filter(EpeopleCaseOrm.department.isnot(None))\
+        .order_by(EpeopleCaseOrm.department)\
+        .all()
+    
+    # TODO: Refactor me, DB에 데이터가 없는 경우 테스트용 mock 데이터 반환
+    if not categories:
+        return [
+            "도로관리과",
+            "교통행정과",
+            "환경과",
+            "복지정책과",
+            "민원여권과"
+        ]
+    
+    categories= [category[0] for category in categories if category[0] is not None]
     
     result = []
     for category in categories:
         cases = db.query(EpeopleCaseOrm)\
-            .filter(EpeopleCaseOrm.department.like(f"%{category}%"))\
+            .filter(EpeopleCaseOrm.department == category)\
             .all()
+        
+        # TODO: Refactor me, DB에 데이터가 없는 경우 테스트용 mock 데이터 생성
+        if not cases:
+            mock_cases = [
+                EpeopleCaseOrm(
+                    case_id=f"{category}-{i:03d}",
+                    title=f"{category} 관련 민원 {i}",
+                    content=f"{category}에 대한 민원 내용입니다. {i}",
+                    department=category,
+                    question_date=datetime.now()
+                ) for i in range(1, 4)  # 각 카테고리당 3개의 mock 케이스 생성
+            ]
+            cases = mock_cases
         
         # TODO: 실제 구현시에는 벡터 유사도 기반으로 그룹화해야 함, 임시로 2개씩 그룹화
         similar_groups = []
@@ -399,14 +437,14 @@ async def get_categorized_cases(
             group_cases = []
             for case in cases[i:i+2]:
                 # TODO: 실제 구현시에는 LLM으로 추천 답변 생성
-                mock_answer = f"이것은 {case.case_id}에 대한 추천 답변입니다."
+                mock_answer = f"{case.department}의 {case.case_id}에 대한 답변입니다: {case.title}에 대해 검토한 결과..."
                 group_cases.append(CaseWithAnswer(
                     case=case,
                     recommended_answer=mock_answer
                 ))
             if group_cases:
                 similar_groups.append(SimilarCaseGroup(cases=group_cases))
-        
+            
         result.append(CategoryCases(
             category_name=category,
             similar_case_groups=similar_groups
@@ -417,4 +455,4 @@ async def get_categorized_cases(
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8001)
+    uvicorn.run(app, host="127.0.0.1", port=8000)

@@ -20,6 +20,7 @@ playwright = "^1.48.0"
 beautifulsoup4 = "^4.12.3"
 pandas = "^2.2.3"
 pymilvus = {extras = ["model"], version = "^2.4.8"}
+pytest = "^8.3.3"
 
 
 [build-system]
