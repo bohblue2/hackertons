@@ -2,3 +2,5 @@ startup.sh
 **/*.pyc
 **/*.pyo
 **/*.pyd
+
+__pycache__
