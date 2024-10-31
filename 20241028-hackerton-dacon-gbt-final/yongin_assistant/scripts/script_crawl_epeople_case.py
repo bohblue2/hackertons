@@ -29,7 +29,6 @@ async def parse_case(page, page_num:int, idx:int, total_count:int, sess: Session
     case_list_html = await page.content()
     html_parser = BeautifulSoup(case_list_html, 'html.parser')
     case_id = html_parser.select_one(f"#frm > table > tbody > tr:nth-child({idx}) > td").text.strip()
-    print(f"[{total_count}] PAGE {page_num+START_PAGE - 1}- IDX {idx} - {case_id}")
 
     # 2. Go to the Target Case page and Parse the content(Question and Answer)
     await page.click(f"#frm > table > tbody > tr:nth-child({idx}) > td.left > a")
@@ -71,6 +70,8 @@ async def parse_case(page, page_num:int, idx:int, total_count:int, sess: Session
         print(f"Already Exists: {case_id}")
     except Exception as e:
         raise e
+    else:
+        print(f"[{total_count}] PAGE {page_num+START_PAGE - 1}- IDX {idx} - {case_id}")
 
     # Back to the list
     await page.click("#txt > div.same_mwWrap > div.btnArea.right > button")
