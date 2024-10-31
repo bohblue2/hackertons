@@ -47,7 +47,14 @@ class RecommendAnswerResponse(BaseModel):
 
 
 class RecommendAnswerRequest(BaseModel):
+    title: str
+    content: str
+    prompt_instruction: Optional[str] = None # NOTE: 단정한 어조를 사용해줘
+
+class RecommendAnswerRequestWithCaseId(BaseModel):
     case_id: str
+    title: Optional[str] = None
+    content: Optional[str] = None
     prompt_instruction: Optional[str] = None # NOTE: 단정한 어조를 사용해줘
     temperature: Optional[float] = 0.0
     max_tokens: Optional[int] = 1000

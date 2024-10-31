@@ -4,7 +4,7 @@ from fastapi import Body, FastAPI, Depends, HTTPException, Path, Query
 from fastapi.middleware.cors import CORSMiddleware
 from yongin_assistant.database.session import SessionLocal
 from yongin_assistant.database.models import EpeopleCaseOrm 
-from yongin_assistant.schemas import CaseWithAnswer, CategoryCases, EpeopleCase, EpeopleCaseCreate, EpeopleCaseWithAnswer, HealthCheck, SimilarCase, RecommendAnswerResponse, RecommendAnswerRequest, SimilarCaseGroup
+from yongin_assistant.schemas import CaseWithAnswer, CategoryCases, EpeopleCase, EpeopleCaseCreate, EpeopleCaseWithAnswer, HealthCheck, RecommendAnswerRequestWithCaseId, SimilarCase, RecommendAnswerResponse, RecommendAnswerRequest, SimilarCaseGroup
 from yongin_assistant.service.vector_service import VectorService
 from yongin_assistant.service.llm_service import LlmService
 from sqlalchemy.orm import Session
@@ -233,7 +233,7 @@ async def get_cases(
 @app.post(
     "/cases/{case_id}/request_recommended_answer", 
     response_model=RecommendAnswerResponse,
-    summary="민원 답변 추천",
+    summary="민원 답변 추천 (미리 등록된 민원 내용 사용) ",
     description="특정 민원에 대한 AI 기반 답변을 생성하여 추천합니다. 답변 생성 시 prompt instruction과 temperature 값을 조정할 수 있습니다.",
     responses={
         200: {
@@ -262,7 +262,7 @@ async def get_cases(
 )
 async def create_recommended_answer(
     case_id: str = Path(..., description="답변을 생성할 민원의 고유 ID"),
-    request: RecommendAnswerRequest = Body(
+    request: RecommendAnswerRequestWithCaseId = Body(
         ...,
         example={
             "case_id": "CASE123",
@@ -292,6 +292,60 @@ async def create_recommended_answer(
         temperature=request.temperature
     )
 
+@app.post(
+    "/request_recommended_answer", 
+    response_model=RecommendAnswerResponse,
+    summary="민원 답변 추천 (내용을 텍스트로 전달)",
+    description="특정 민원에 대한 AI 기반 답변을 생성하여 추천합니다. 답변 생성 시 prompt instruction과 temperature 값을 조정할 수 있습니다.",
+    responses={
+        200: {
+            "description": "생성된 답변 추천",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "case_id": "CASE123",
+                        "content": "귀하의 민원에 대해 답변 드립니다...",
+                        "department": "도로관리과",
+                        "created_at": "2024-01-01T00:00:00",
+                        "temperature": 0.7
+                    }
+                }
+            }
+        },
+        500: {
+            "description": "민원을 생성할 수 없음",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Internal server error"}
+                }
+            }
+        }
+    }
+)
+async def create_recommended_answer(
+    request: RecommendAnswerRequest = Body(
+        ...,
+        example={
+            "title": "도로 보수 요청",
+            "content": "도로에 파손이 심각하여 보수가 필요합니다.",
+            "prompt_instruction": "단정하고 공손한 어조로 답변해주세요",
+        },
+        description="답변 생성을 위한 파라미터"
+    ),
+    db: Session = Depends(get_db),
+    llm_service: LlmService = Depends(get_llm_service)
+) -> RecommendAnswerResponse:
+    new_answer = llm_service.generate_answer(request.title, request.content, request.prompt_instruction)
+    department = "수정중입니다."
+
+    return RecommendAnswerResponse(
+        case_id="0",
+        content=new_answer,
+        department=department,
+        created_at=datetime.now(),
+        temperature=request.temperature
+    )
+    
 # 유사 민원 조회
 @app.get(
     "/cases/{case_id}/similar",
