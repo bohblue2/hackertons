@@ -3,4 +3,7 @@ startup.sh
 **/*.pyo
 **/*.pyd
 
+.dev.env
+.prod.env
+
 __pycache__

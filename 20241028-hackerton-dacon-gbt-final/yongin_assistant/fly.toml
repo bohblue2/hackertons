@@ -7,7 +7,7 @@ app = 'yongin-assistant'
 primary_region = 'nrt'
 
 [build]
-  image = 'Dockerfile'
+  dockerfile = "Dockerfile"
 
 [http_service]
   internal_port = 8080

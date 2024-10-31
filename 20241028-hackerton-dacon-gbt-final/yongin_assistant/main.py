@@ -9,6 +9,9 @@ from yongin_assistant.vector_service import VectorService
 from yongin_assistant.llm_service import LlmService
 from sqlalchemy.orm import Session
 
+import dotenv
+dotenv.load_dotenv('.dev.env')
+
 def get_db():
     db = SessionLocal()
     try:
