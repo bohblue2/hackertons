@@ -12,7 +12,7 @@ class VectorService:
         self._client = get_client() 
         self._collection = get_collection()
     
-    def find_similar(self, content: str, limit: int, min_similarity: float) -> List[dict]:
+    def find_similar(self, content: str, limit: int) -> List[dict]:
         data = self._embeddings.embed_query(content)
         search_params = MilvusSearchParams(
             data=data,

@@ -35,7 +35,7 @@ class EpeopleCaseWithAnswer(EpeopleCase):
 class SimilarCase(BaseModel):
     case_id: str 
     title: str
-    similarity_score: float
+
 
 
 class RecommendAnswerResponse(BaseModel):

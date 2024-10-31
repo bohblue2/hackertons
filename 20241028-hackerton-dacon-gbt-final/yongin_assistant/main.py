@@ -303,9 +303,6 @@ async def create_recommended_answer(
                     "example": [{
                         "case_id": "2024-00001",
                         "title": "도로 보수 요청",
-                        "similarity_score": 0.95,
-                        "question_date": "2024-01-01T00:00:00",
-                        "department": "도로관리과"
                     }]
                 }
             }
@@ -323,8 +320,8 @@ async def create_recommended_answer(
 async def get_similar_cases(
     case_id: str = Path(..., description="조회할 민원의 고유 ID"),
     limit: int = Query(5, ge=1, le=20, description="반환할 유사 민원의 최대 개수"),
-    min_similarity: float = Query(0.7, ge=0, le=1, description="최소 유사도 점수 (0~1 사이)"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    vector_service: VectorService = Depends(get_vector_service)
 ):
     case = db.query(EpeopleCaseOrm)\
             .filter(EpeopleCaseOrm.case_id == case_id)\
@@ -333,23 +330,23 @@ async def get_similar_cases(
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
     
-    # TODO: 벡터 유사도 계산 및 정렬
-    # vector_service = VectorService()
-    # NOTE: 아마도 많은 데이터가 있을 경우 persistent-queue 를 사용해서 queuing 하는 것이 좋을 듯
-    # similar_cases = vector_service.find_similar(case.content, limit, min_similarity)
+    vector_service = VectorService()
+    similar_cases: List[dict] = vector_service.find_similar(
+        content=case.content, 
+        limit=limit
+    )
+
+    target_cases = db.query(EpeopleCaseOrm)\
+        .filter(EpeopleCaseOrm.case_id.in_([similar_case["case_id"] for similar_case in similar_cases]))\
+        .all()
     
-    # TODO: 실제 구현 시 벡터 유사도 검색으로 대체
-    similar_cases = [
-        {
-            "case_id": f"2024-{i:05d}",
-            "title": f"유사 민원 제목 {i}",
-            "similarity_score": 0.9 - (i * 0.05),
-            "question_date": datetime.now(),
-            "department": case.department
-        }
-        for i in range(limit)
-    ]
-    
+    similar_cases = []
+    for target_case in target_cases:
+        similar_cases.append(SimilarCase(
+            case_id=target_case.case_id,
+            title=target_case.title
+        ))
+        
     return similar_cases
 
 @app.get(
