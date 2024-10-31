@@ -5,8 +5,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from yongin_assistant.database.session import SessionLocal
 from yongin_assistant.database.models import EpeopleCaseOrm 
 from yongin_assistant.schemas import CaseWithAnswer, CategoryCases, EpeopleCase, EpeopleCaseCreate, EpeopleCaseWithAnswer, HealthCheck, SimilarCase, RecommendAnswerResponse, RecommendAnswerRequest, SimilarCaseGroup
-from yongin_assistant.vector_service import VectorService
-from yongin_assistant.llm_service import LlmService
+from yongin_assistant.service.vector_service import VectorService
+from yongin_assistant.service.llm_service import LlmService
 from sqlalchemy.orm import Session
 
 import dotenv
