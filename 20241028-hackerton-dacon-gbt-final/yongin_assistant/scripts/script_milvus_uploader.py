@@ -27,7 +27,7 @@ if __name__ == "__main__":
 
     import pandas as pd 
     import sqlite3
-    conn = sqlite3.connect('datasets/yongin.db')
+    conn = sqlite3.connect('../datasets/yongin.db')
     df = pd.read_sql_query("SELECT * FROM epeople_cases", conn)
 
     client=get_client()

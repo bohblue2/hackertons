@@ -24,6 +24,7 @@ streamlit = "^1.39.0"
 langchain = {extras = ["milvus"], version = "^0.3.5"}
 langchain-milvus = "^0.1.6"
 fastapi = {extras = ["standard"], version = "^0.115.4"}
+tenacity = "^9.0.0"
 
 
 [build-system]

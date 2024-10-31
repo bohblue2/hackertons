@@ -343,7 +343,7 @@ async def create_recommended_answer(
         content=new_answer,
         department=department,
         created_at=datetime.now(),
-        temperature=request.temperature
+        temperature=0.0
     )
     
 # 유사 민원 조회

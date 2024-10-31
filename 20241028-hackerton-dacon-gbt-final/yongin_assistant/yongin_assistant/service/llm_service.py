@@ -67,7 +67,9 @@ class LlmService:
         )
 
     def generate_answer(self, title: str, content: str, prompt_template: Optional[str] = None) -> str:
-        return self._rag_chain.invoke(f"제목: {title}, 내용: {content} 에 대한 답변을 작성해주세요.")
+        return self._rag_chain.invoke(
+            f"다음과 같은 프롬프트에 맞춰서 답변해야합니다:'{prompt_template}' 그리고\n제목: {title}.\n내용: {content} 에 대한 답변을 작성해주세요."
+        )
     
     def close(self): ... 
 
