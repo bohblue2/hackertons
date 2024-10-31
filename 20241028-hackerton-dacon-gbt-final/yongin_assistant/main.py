@@ -496,7 +496,7 @@ async def get_categorized_cases(
         for case in cases:
             case: EpeopleCaseOrm
 
-            similar_cases: List[dict] = vector_service.find_similar(case.content, limit=search_top_k, min_similarity=0.5)
+            similar_cases: List[dict] = vector_service.find_similar(case.content, limit=search_top_k)
             mock_answer = f"{case.department}의 {case.case_id}에 대한 답변입니다: {case.title}에 대해 검토한 결과..."
             group_cases = []
             for similar_case in similar_cases:
